@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="&#1055;&#1091;&#1083;&#1100;&#1090;">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F1F2F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1015" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<title>Пульт задач</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@600;700&display=swap">
+<style>
+/* Layout: one phone column (max 640px) — sticky title bar, scrolling view, bottom tab bar, bottom sheets for editing */
+:root{
+  --bg:#F1F2F5; --surface:#FFFFFF; --surface-2:#E6E8ED; --fg:#151821; --muted:#5E6676; --line:#D8DBE2;
+  --accent:#2A44C4; --accent-fg:#FFFFFF; --ok:#1C9A57;
+  --q1:#D2263A; --q2:#E0701C; --q3:#D8A30F; --q4:#8B929E;
+  --on-q:#FFFFFF; --on-yellow:#231B00; --scrim:rgba(12,14,20,.45); --shadow:0 10px 30px rgba(20,24,40,.16);
+  --font:"Onest",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --tab-h:62px; --r:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1015; --surface:#171A21; --surface-2:#22262F; --fg:#E8EBF1; --muted:#98A0AE; --line:#2B303B;
+    --accent:#8299FF; --accent-fg:#0E1015; --ok:#3DC983;
+    --q1:#FF4B5C; --q2:#FF8E3C; --q3:#F2C230; --q4:#6F7785;
+    --scrim:rgba(0,0,0,.6); --shadow:0 10px 30px rgba(0,0,0,.55); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1015; --surface:#171A21; --surface-2:#22262F; --fg:#E8EBF1; --muted:#98A0AE; --line:#2B303B;
+  --accent:#8299FF; --accent-fg:#0E1015; --ok:#3DC983;
+  --q1:#FF4B5C; --q2:#FF8E3C; --q3:#F2C230; --q4:#6F7785;
+  --scrim:rgba(0,0,0,.6); --shadow:0 10px 30px rgba(0,0,0,.55); color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.4;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg{flex:none}
+.muted{color:var(--muted)}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;max-width:640px;margin:0 auto;display:flex;align-items:center;gap:10px;
+  padding-block:10px 8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--bg)}
+.top h1{flex:1;min-width:0;margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{width:40px;height:40px;flex:none;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--fg);padding:0}
+.icon-btn.sm{width:30px;height:30px;border-radius:9px;border:0;background:none;color:var(--muted)}
+
+main{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:20px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:4px calc(var(--tab-h) + env(safe-area-inset-bottom,0px) + 96px)}
+
+/* tab bar + fab */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+.tabbar-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);height:var(--tab-h)}
+.tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:500;color:var(--muted)}
+.tab[aria-current="page"]{color:var(--accent)}
+.fab{position:fixed;z-index:26;right:max(max(16px,env(safe-area-inset-right,0px)),calc(50% - 304px));bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px) + 16px);
+  width:58px;height:58px;border-radius:18px;border:0;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;box-shadow:var(--shadow)}
+
+/* today hero */
+.hero{display:flex;flex-direction:column;gap:10px}
+.hero .day{font-size:15px;color:var(--muted);margin:0}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;font-variant-numeric:tabular-nums}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--qc)}
+.pill b{font-weight:700}
+
+/* chips */
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chips.wrap{flex-wrap:wrap;overflow:visible}
+.chip{flex:none;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:13.5px;white-space:nowrap;color:var(--fg)}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip.warn{border-color:color-mix(in srgb,var(--q1) 50%,var(--line));color:var(--q1)}
+.pdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.pdot.lg{width:12px;height:12px}
+
+/* quick add */
+.qa{display:flex;gap:8px}
+.field{width:100%;min-width:0;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--surface);padding:0 14px;font-size:16px;color:var(--fg)}
+.field.ta{height:auto;padding:11px 14px;resize:vertical;line-height:1.4}
+.field.err{border-color:var(--q1)}
+select.field{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 20px,calc(100% - 13px) 20px;background-size:5px 5px;background-repeat:no-repeat}
+.qa .field{flex:1}
+.qa-prev{display:flex;flex-wrap:wrap;gap:6px;font-size:13px;min-height:24px;align-items:center}
+.qa-prev code{font-family:var(--mono);font-size:12px;background:var(--surface-2);padding:2px 6px;border-radius:6px}
+.btn{height:46px;padding:0 16px;border-radius:12px;border:0;background:var(--accent);color:var(--accent-fg);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.btn.ghost{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
+.btn.danger{color:var(--q1)}
+.btn.armed{background:var(--q1);color:var(--on-q);border-color:var(--q1)}
+.linkbtn{border:0;background:none;color:var(--accent);font-weight:600;padding:6px 0;text-align:left}
+
+/* sections */
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec h2{margin:0;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sec h2 .n{font-family:var(--mono);letter-spacing:0}
+.list{display:flex;flex-direction:column;gap:8px}
+.empty{color:var(--muted);font-size:14px;padding:16px;border:1px dashed var(--line);border-radius:var(--r);text-align:center}
+
+/* task card */
+.card{position:relative;border-radius:var(--r);background:var(--surface-2);overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.q1{--qc:var(--q1)} .q2{--qc:var(--q2)} .q3{--qc:var(--q3)} .q4{--qc:var(--q4)}
+.under{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-weight:600;font-size:13px}
+.under span{display:inline-flex;align-items:center;gap:6px}
+.under .l{color:var(--ok)} .under .r{color:var(--accent)}
+.card-body{position:relative;display:flex;align-items:center;gap:12px;padding:12px 12px 12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:inset 4px 0 0 var(--qc);transition:transform .22s ease;cursor:pointer}
+.card.swiping .card-body{transition:none}
+.card.overdue .card-body{border-color:color-mix(in srgb,var(--q1) 55%,var(--line));animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:inset 4px 0 0 var(--qc),0 0 0 3px color-mix(in srgb,var(--q1) 22%,transparent)}}
+.idx{flex:none;min-width:46px;height:30px;padding:0 6px;border-radius:9px;display:inline-grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;
+  background:var(--qc);background:color-mix(in srgb,var(--qc) var(--p,70%),var(--surface));color:var(--on-q);position:relative}
+.idx.lt{color:var(--fg)} .idx.dk{color:var(--on-yellow)}
+.idx sup{font-size:9px;position:absolute;top:2px;right:3px;line-height:1}
+.card-main{flex:1;min-width:0}
+.card-title{font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:4px;font-size:12.5px;color:var(--muted)}
+.meta>span{display:inline-flex;align-items:center;gap:5px}
+.meta .over{color:var(--q1);font-weight:600}
+.tag{padding:1px 7px;border-radius:6px;background:var(--surface-2);color:var(--fg);font-size:11.5px;font-weight:500}
+.check{width:30px;height:30px;flex:none;border-radius:50%;border:2px solid var(--line);background:none;display:grid;place-items:center;color:transparent;padding:0}
+.check:hover{border-color:var(--ok);color:var(--ok)}
+.card.done .card-title{text-decoration:line-through;color:var(--muted)}
+.card.done .check{background:var(--ok);border-color:var(--ok);color:var(--on-q)}
+.card.done .idx{background:var(--surface-2);color:var(--muted)}
+.progress{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;margin-top:8px}
+.progress i{display:block;height:100%;background:var(--accent);border-radius:3px}
+
+/* timeline rows */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.trow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 14px;border:0;border-top:1px solid var(--line);background:none;color:var(--fg)}
+.trow:first-child{border-top:0}
+.trow .tt{font-family:var(--mono);font-weight:700;font-size:13px;min-width:46px;font-variant-numeric:tabular-nums}
+.trow .tn{flex:1;min-width:0;overflow-wrap:anywhere}
+
+/* notes / banners */
+.note{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);font-size:14px}
+.note.warn{border-color:color-mix(in srgb,var(--q1) 40%,var(--line));background:color-mix(in srgb,var(--q1) 7%,var(--surface))}
+.note.info{border-color:color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.note .row{display:flex;gap:8px;flex-wrap:wrap}
+.note .btn{height:38px;font-size:14px;padding:0 14px}
+.note p{margin:0}
+
+/* matrix */
+.axes{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:center;margin-bottom:-12px}
+.matrix{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.quad{min-width:0;display:flex;flex-direction:column;gap:6px;padding:10px 7px;border-radius:16px;
+  background:color-mix(in srgb,var(--qc) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--qc) 35%,var(--line));
+  height:max(230px,calc((100vh - var(--tab-h) - 250px) / 2));height:max(230px,calc((100dvh - var(--tab-h) - 250px) / 2));overflow-y:auto;overscroll-behavior:contain}
+.quad.drop{outline:2px dashed var(--qc);outline-offset:-3px}
+.quad h3{margin:0 3px 2px;font-size:13px;line-height:1.2;display:flex;flex-direction:column;gap:1px}
+.quad h3 span{display:flex;justify-content:space-between;gap:6px}
+.quad h3 small{font-size:11px;font-weight:500;color:var(--muted)}
+.mcard{display:flex;align-items:flex-start;gap:5px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 6px 6px 2px;cursor:pointer}
+.mcard .idx{min-width:36px;height:24px;font-size:12px;border-radius:7px}
+.mcard .t{flex:1;min-width:0;font-size:13px;line-height:1.28;overflow-wrap:break-word;hyphens:auto;-webkit-hyphens:auto;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.grip{touch-action:none;width:20px;height:24px;flex:none;display:grid;place-items:center;color:var(--muted);border:0;background:none;padding:0;cursor:grab}
+.mcard.dragging{opacity:.35}
+.drag-ghost{position:fixed;z-index:60;pointer-events:none;opacity:.95;transform:rotate(-2deg);box-shadow:var(--shadow);top:0;left:0}
+.hint{font-size:13px;color:var(--muted);margin:0}
+
+/* projects */
+.prow{display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);text-align:left;color:var(--fg)}
+.pmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pn{font-weight:600;overflow-wrap:anywhere}
+.pc{font-size:12.5px;color:var(--muted)}
+.hot{min-width:24px;height:24px;padding:0 7px;border-radius:12px;background:var(--q1);color:var(--on-q);font-size:12px;font-weight:700;display:grid;place-items:center;font-family:var(--mono)}
+.prow svg{color:var(--muted)}
+.bar{display:flex;gap:8px;flex-wrap:wrap}
+.bar .btn{height:40px;font-size:14px}
+
+/* calendar */
+.cal-head{display:flex;align-items:center;gap:8px}
+.cal-head h2{flex:1;margin:0;font-size:18px;font-weight:600}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal .wd{font-size:11px;text-align:center;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding-bottom:2px}
+.cday{min-width:0;height:48px;border-radius:10px;border:1px solid transparent;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-variant-numeric:tabular-nums;font-size:14px;color:var(--fg);padding:0}
+.cday.out{opacity:.38}
+.cday.today{border-color:var(--accent);color:var(--accent);font-weight:700}
+.cday[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.dots{display:flex;gap:3px;height:6px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--qc)}
+
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet-back{position:absolute;inset:0;background:var(--scrim)}
+.sheet-panel{position:relative;width:100%;max-width:640px;max-height:calc(100% - env(safe-area-inset-top,0px) - 20px);overflow-y:auto;overscroll-behavior:contain;
+  background:var(--bg);border-radius:22px 22px 0 0;display:flex;flex-direction:column;gap:18px;
+  padding-block:0 calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  animation:up .24s ease}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+.sheet-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding-top:14px;padding-bottom:6px;background:var(--bg)}
+.sheet-head h2{flex:1;margin:0;font-size:20px;font-weight:700}
+.fld{display:flex;flex-direction:column;gap:7px;min-width:0}
+.lbl{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--surface-2);border-radius:12px;padding:3px;gap:3px}
+.seg button{height:38px;border:0;border-radius:9px;background:none;font-weight:600;color:var(--muted);font-size:14px;padding:0 4px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.seg.lvl button{font-family:var(--mono);font-size:16px}
+.seg.lvl button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.cap{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);padding:0 4px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:380px){.row2{grid-template-columns:1fr}}
+.idxprev{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line);box-shadow:inset 4px 0 0 var(--qc)}
+.idxprev .idx{min-width:62px;height:42px;font-size:19px;border-radius:12px}
+.idxprev b{display:block}
+.idxprev .muted{font-size:13px}
+.switch{display:flex;align-items:flex-start;gap:12px;font-size:14px;cursor:pointer}
+.switch input{appearance:none;-webkit-appearance:none;flex:none;width:44px;height:26px;border-radius:13px;background:var(--surface-2);border:1px solid var(--line);position:relative;margin:0;transition:background .2s;cursor:pointer}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.switch input:checked{background:var(--accent);border-color:var(--accent)}
+.switch input:checked::after{transform:translateX(18px)}
+.remlist{display:flex;flex-direction:column;gap:6px}
+.remrow{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:14px}
+.remrow span:first-of-type{flex:1;min-width:0}
+.foot{display:flex;gap:8px;flex-wrap:wrap}
+.foot .btn{flex:1 1 auto}
+.subs{display:flex;flex-direction:column;gap:6px}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.sw{width:36px;height:36px;border-radius:50%;background:var(--c);border:3px solid var(--bg);box-shadow:0 0 0 1px var(--line);padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--fg)}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+
+/* toasts */
+.toasts{position:fixed;left:0;right:0;z-index:45;bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px) + 86px);display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.toast{pointer-events:auto;width:100%;max-width:560px;display:flex;align-items:center;gap:10px;padding:12px 8px 12px 14px;border-radius:14px;background:var(--fg);color:var(--bg);box-shadow:var(--shadow);font-size:14px;animation:up .2s ease}
+.toast.out{opacity:0;transition:opacity .2s}
+.tmsg{flex:1;min-width:0;overflow-wrap:anywhere}
+.tacts{display:flex;flex-wrap:wrap;justify-content:flex-end}
+.tacts button{border:0;background:none;color:inherit;font-weight:700;padding:6px 8px;border-radius:8px;white-space:nowrap}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="top">
+  <button id="back" class="icon-btn" data-act="pback" aria-label="Назад" hidden></button>
+  <h1 id="title">Сегодня</h1>
+  <button id="gear" class="icon-btn" data-act="settings" aria-label="Настройки"></button>
+</header>
+<main id="view"></main>
+<button id="fab" class="fab" data-act="new" aria-label="Новая запись"></button>
+<nav class="tabbar" aria-label="Разделы"><div class="tabbar-in" id="tabs"></div></nav>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-back" data-act="close"></div>
+  <div class="sheet-panel" id="sheet-panel" role="dialog" aria-modal="true"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const KEY='pult.v1';
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const uid=()=>Math.random().toString(36).slice(2,10);
+const pad=n=>String(n).padStart(2,'0');
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toLocal=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const dayKey=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseLocal=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(s||'');return m?new Date(+m[1],m[2]-1,+m[3],+(m[4]||0),+(m[5]||0)):null};
+const sod=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const at=(d,h,m=0)=>{const x=new Date(d);x.setHours(h,m,0,0);return x};
+const sameDay=(a,b)=>dayKey(a)===dayKey(b);
+const hhmm=d=>`${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const plural=(n,a,b,c)=>{const m10=n%10,m100=n%100;return m10===1&&m100!==11?a:(m10>=2&&m10<=4&&(m100<12||m100>14)?b:c)};
+const MG=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MS=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+const MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const WD=['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+const WS=['вс','пн','вт','ср','чт','пт','сб'];
+const QN={1:'Сделать сейчас',2:'Запланировать',3:'Делегировать',4:'Отложить'};
+const QH={1:'важно и срочно',2:'важно, не срочно',3:'срочно, но не важно',4:'не важно и не срочно'};
+const REP={none:'Не повторять',daily:'Каждый день',weekdays:'По будням',weekly:'Каждую неделю',monthly:'Каждый месяц'};
+const STAT={todo:'Новая',doing:'В работе',wait:'Ждёт ответа',done:'Готово'};
+const TYPES={task:'Задача',goal:'Цель',reminder:'Напоминание'};
+const COLORS=['#3B5BDB','#0F8B8D','#1098AD','#7048E8','#C2255C','#2B8A3E','#A0522D','#5C677D'];
+const inFrame=(()=>{try{return window.self!==window.top}catch(e){return true}})();
+const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+
+const P='fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"';
+const svg=(d,s=20)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" ${P} aria-hidden="true">${d}</svg>`;
+const IC={
+  today:svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',22),
+  matrix:svg('<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>',22),
+  folder:svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',22),
+  cal:svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',22),
+  calSm:svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',18),
+  gear:svg('<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>'),
+  plus:svg('<path d="M12 5v14M5 12h14"/>',26),
+  bell:svg('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',13),
+  bellLg:svg('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',20),
+  repeat:svg('<path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',13),
+  grip:'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  close:svg('<path d="M6 6l12 12M18 6L6 18"/>',18),
+  back:svg('<path d="M15 18l-6-6 6-6"/>'),
+  next:svg('<path d="M9 18l6-6-6-6"/>'),
+  check:svg('<path d="M5 12l5 5L20 7"/>',16),
+  arrow:svg('<path d="M5 12h14M13 6l6 6-6 6"/>',16),
+};
+
+/* ---------- data ---------- */
+const rel=min=>({id:uid(),kind:'rel',min,fired:false});
+function mkItem(o){return Object.assign({id:uid(),type:'task',title:'',notes:'',projectId:null,parentId:null,imp:3,urg:3,autoUrg:true,due:'',reminders:[],repeat:'none',status:'todo',createdAt:toLocal(new Date()),doneAt:'',sample:false},o||{})}
+function seed(){
+  const now=new Date(),T=sod(now);
+  const Pj=(name,tag,color,parentId=null)=>({id:uid(),name,tag,color,parentId});
+  const zv=Pj('Телеканал «Звезда»','звезда','#3B5BDB'),ctv=Pj('Цифровое телевидение','цтв','#0F8B8D'),
+        sat=Pj('АО «Спутниковое телевидение»','спутник','#1098AD',ctv.id),me=Pj('Личное','личное','#7048E8');
+  const I=o=>mkItem(Object.assign({sample:true},o));
+  const fri=addDays(T,((5-T.getDay()+7)%7)||7);
+  const goal=I({type:'goal',title:'Запустить новый тематический канал в пакете',projectId:ctv.id,imp:5,urg:2,due:toLocal(at(addDays(T,60),12))});
+  const items=[
+    I({title:'Согласовать эфирную сетку на ноябрь',projectId:zv.id,imp:5,urg:4,status:'doing',due:toLocal(at(addDays(T,1),12)),reminders:[rel(120)]}),
+    I({title:'Отчёт по абонентской базе за III квартал',projectId:sat.id,imp:4,urg:4,due:toLocal(at(T,19)),reminders:[rel(60)]}),
+    I({title:'Ответить юристам по договору с оператором',projectId:sat.id,imp:3,urg:4,status:'wait',due:toLocal(at(addDays(T,-1),17))}),
+    I({type:'reminder',title:'Планёрка у главного редактора',projectId:zv.id,imp:3,urg:5,due:toLocal(at(now,now.getHours()+2,0)),reminders:[rel(10)]}),
+    goal,
+    I({title:'Собрать предложения по контенту канала',projectId:ctv.id,parentId:goal.id,imp:4,urg:3,due:toLocal(at(addDays(T,7),18))}),
+    I({title:'Согласовать бюджет запуска с холдингом',projectId:ctv.id,parentId:goal.id,imp:5,urg:3,status:'done',doneAt:toLocal(addDays(now,-2))}),
+    I({title:'Подписать акты у бухгалтерии',projectId:sat.id,imp:2,urg:4,due:toLocal(at(addDays(T,1),11))}),
+    I({title:'Еженедельный отчёт по рейтингам',projectId:zv.id,imp:3,urg:3,repeat:'weekly',due:toLocal(at(fri,16)),reminders:[rel(60)]}),
+    I({title:'Продлить ОСАГО',projectId:me.id,imp:4,urg:2,due:toLocal(at(addDays(T,12),10)),reminders:[rel(4320)]}),
+    I({title:'Посмотреть пилот новой программы',projectId:zv.id,imp:2,urg:1}),
+  ];
+  return {v:1,projects:[zv,ctv,sat,me],items,missed:[],settings:{}};
+}
+
+let S;
+const hostTheme=document.documentElement.getAttribute('data-theme');
+const ui={view:'today',filter:'all',proj:null,showDone:false,calMonth:null,calSel:null,undo:null,importData:null};
+function load(){
+  let d=null;try{d=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
+  S=(d&&d.v===1&&Array.isArray(d.items)&&Array.isArray(d.projects))?d:seed();
+  S.missed=S.missed||[];
+  S.settings=Object.assign({digest:'09:00',lastDigest:'',theme:'auto',hintNotif:true,view:'today',filter:'all'},S.settings||{});
+  ui.view=S.settings.view;ui.filter=S.settings.filter;
+  if(ui.filter!=='all'&&!proj(ui.filter))ui.filter='all';
+}
+function store(){S.settings.view=ui.view;S.settings.filter=ui.filter;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const item=id=>S.items.find(i=>i.id===id);
+const proj=id=>S.projects.find(p=>p.id===id);
+function projIds(pid){const out=[pid];for(let k=0;k<out.length;k++)S.projects.forEach(p=>{if(p.parentId===out[k])out.push(p.id)});return out}
+function ordered(){const out=[];const walk=(pid,dep)=>S.projects.filter(p=>(p.parentId||null)===pid).forEach(p=>{out.push({p,dep});walk(p.id,dep+1)});walk(null,0);return out}
+function inFilter(i){if(ui.filter==='all')return true;return projIds(ui.filter).includes(i.projectId)}
+const activeAll=()=>S.items.filter(i=>i.status!=='done');
+const active=()=>activeAll().filter(inFilter);
+
+/* ---------- priority ---------- */
+const dueOf=i=>parseLocal(i.due);
+function effUrg(i,now=new Date()){
+  let u=i.urg;const d=dueOf(i);
+  if(i.autoUrg&&d&&i.status!=='done'){if(d<now||sameDay(d,now))u=5;else if(d-now<=72*36e5)u=Math.max(u,4)}
+  return u;
+}
+const score=(i,now)=>i.imp*effUrg(i,now);
+function quad(i,now){const u=effUrg(i,now);return i.imp>=4?(u>=4?1:2):(u>=4?3:4)}
+const isOver=(i,now=new Date())=>{const d=dueOf(i);return !!d&&d<now&&i.status!=='done'};
+function cmpDue(a,b){const x=dueOf(a),y=dueOf(b);if(x&&y)return x-y;if(x)return -1;if(y)return 1;return 0}
+function byScore(a,b){const now=new Date();return score(b,now)-score(a,now)||cmpDue(a,b)}
+function idxHTML(i,now=new Date()){
+  const q=quad(i,now),sc=score(i,now),eu=effUrg(i,now),pct=Math.round(30+70*sc/25);
+  const cls=(pct<58||q===4)?'lt':(q===3?'dk':'');
+  return `<span class="idx ${cls}" style="--p:${pct}%" title="Важность ${i.imp}, срочность ${eu}${eu>i.urg?' (поднята сроком)':''}">${i.imp}·${eu}${eu>i.urg?'<sup>↑</sup>':''}</span>`;
+}
+
+/* ---------- time formatting ---------- */
+function fmtDue(d,now=new Date()){
+  const dd=Math.round((sod(d)-sod(now))/864e5),t=hhmm(d);
+  if(d<now){if(dd===0)return `просрочено, было в ${t}`;const n=-dd;return `просрочено на ${n} ${plural(n,'день','дня','дней')}`}
+  if(dd===0)return `сегодня ${t}`;if(dd===1)return `завтра ${t}`;if(dd===2)return `послезавтра ${t}`;
+  if(dd<7)return `${WS[d.getDay()]}, ${t}`;
+  return `${d.getDate()} ${MS[d.getMonth()]}${d.getFullYear()!==now.getFullYear()?' '+d.getFullYear():''}, ${t}`;
+}
+const fmtAbs=d=>`${d.getDate()} ${MS[d.getMonth()]}, ${hhmm(d)}`;
+const fmtShort=(d,now=new Date())=>sameDay(d,now)?hhmm(d):(sameDay(d,addDays(now,1))?'завтра '+hhmm(d):fmtAbs(d));
+function durText(m){
+  if(m>=1440&&m%1440===0){const d=m/1440;return `${d} ${plural(d,'день','дня','дней')}`}
+  if(m>=60&&m%60===0){const h=m/60;return `${h} ${plural(h,'час','часа','часов')}`}
+  return `${m} мин`;
+}
+function fireTime(i,r){if(r.kind==='abs')return parseLocal(r.at);const d=dueOf(i);return d?new Date(d-r.min*6e4):null}
+function nextFire(i){let best=null;for(const r of i.reminders){if(r.fired)continue;const t=fireTime(i,r);if(t&&(!best||t<best))best=t}return best}
+function remText(i,r){if(r.kind==='abs'){const t=parseLocal(r.at);return t?fmtAbs(t):'—'}return r.min===0?'В момент срока':`За ${durText(r.min)} до срока`}
+
+/* ---------- card ---------- */
+function cardHTML(i,o={}){
+  const now=new Date(),q=quad(i,now),p=proj(i.projectId),d=dueOf(i),done=i.status==='done';
+  const meta=[];
+  if(p)meta.push(`<span><i class="pdot" style="--c:${p.color}"></i>${esc(p.name)}</span>`);
+  if(i.type!=='task')meta.push(`<span class="tag">${TYPES[i.type]}</span>`);
+  if(i.status==='doing'||i.status==='wait')meta.push(`<span class="tag">${STAT[i.status]}</span>`);
+  if(d)meta.push(`<span class="${isOver(i,now)?'over':''}">${fmtDue(d,now)}</span>`);
+  if(i.repeat!=='none')meta.push(`<span>${IC.repeat}${REP[i.repeat].toLowerCase()}</span>`);
+  if(!done){const nf=nextFire(i);if(nf)meta.push(`<span>${IC.bell}${fmtShort(nf,now)}</span>`)}
+  let prog='';
+  if(i.type==='goal'){
+    const subs=S.items.filter(x=>x.parentId===i.id),dn=subs.filter(x=>x.status==='done').length,pc=subs.length?Math.round(dn/subs.length*100):0;
+    prog=`<div class="progress" role="progressbar" aria-valuenow="${pc}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pc}%"></i></div><div class="meta"><span>${dn} из ${subs.length} ${plural(subs.length,'подзадачи','подзадач','подзадач')} · ${pc}%</span></div>`;
+  }
+  return `<div class="card q${q}${done?' done':''}${isOver(i,now)?' overdue':''}" data-id="${i.id}" data-swipe>
+    <div class="under"><span class="l">${IC.check} ${done?'Вернуть':'Готово'}</span><span class="r">На завтра ${IC.arrow}</span></div>
+    <div class="card-body" data-act="open" data-id="${i.id}">
+      ${idxHTML(i,now)}
+      <div class="card-main"><div class="card-title">${esc(i.title)}</div><div class="meta">${meta.join('')}</div>${prog}</div>
+      <button class="check" data-act="toggle" data-id="${i.id}" aria-label="${done?'Вернуть в работу':'Отметить выполненной'}">${IC.check}</button>
+    </div></div>`;
+}
+const listHTML=(arr,empty)=>arr.length?`<div class="list">${arr.map(i=>cardHTML(i)).join('')}</div>`:(empty?`<div class="empty">${empty}</div>`:'');
+const sec=(title,body,n)=>`<section class="sec"><h2><span>${title}</span>${n!=null?`<span class="n">${n}</span>`:''}</h2>${body}</section>`;
+
+function filterChips(){
+  const list=[['all','Все проекты',null]].concat(ordered().map(({p})=>[p.id,p.name,p.color]));
+  return `<div class="chips" role="group" aria-label="Фильтр по проекту">${list.map(([v,n,c])=>`<button class="chip" data-act="filter" data-v="${v}" aria-pressed="${ui.filter===v}">${c?`<i class="pdot" style="--c:${c}"></i>`:''}${esc(n)}</button>`).join('')}</div>`;
+}
+
+/* ---------- views ---------- */
+function vToday(){
+  const now=new Date(),act=active(),shown=new Set();
+  const over=act.filter(i=>isOver(i,now)).sort(byScore);over.forEach(i=>shown.add(i.id));
+  const rest=act.filter(i=>!shown.has(i.id)).sort(byScore);
+  const top=rest.filter(i=>i.type!=='reminder').slice(0,5);top.forEach(i=>shown.add(i.id));
+  const todayL=rest.filter(i=>!shown.has(i.id)&&dueOf(i)&&sameDay(dueOf(i),now)).sort(cmpDue);todayL.forEach(i=>shown.add(i.id));
+  const rems=[];act.forEach(i=>i.reminders.forEach(r=>{if(r.fired)return;const t=fireTime(i,r);if(t&&t>=now&&sameDay(t,now))rems.push({i,t})}));rems.sort((a,b)=>a.t-b.t);
+  const hot=act.filter(i=>quad(i,now)===1).length,dueToday=act.filter(i=>dueOf(i)&&sameDay(dueOf(i),now)).length;
+  const left=act.length-shown.size;
+  let h=`<div class="hero"><p class="day">${WD[now.getDay()]}, ${now.getDate()} ${MG[now.getMonth()]}</p><div class="pills">
+    <span class="pill q1"><i></i><b>${over.length}</b> просрочено</span>
+    <span class="pill q1"><i></i><b>${hot}</b> ${plural(hot,'горит','горят','горят')}</span>
+    <span class="pill q2"><i></i><b>${dueToday}</b> со сроком сегодня</span>
+    <span class="pill"><span>${IC.bell}</span><b>${rems.length}</b> ${plural(rems.length,'напоминание','напоминания','напоминаний')}</span></div></div>`;
+  if(S.missed.length){
+    const rows=S.missed.slice(-8).reverse().map(m=>{const i=item(m.id);return i?`<button class="trow" data-act="open" data-id="${i.id}"><span class="tt">${esc(fmtShort(parseLocal(m.t),now))}</span><span class="tn">${esc(i.title)}</span></button>`:''}).join('');
+    h+=`<div class="note warn"><p><b>Пока приложение было закрыто, сработало ${S.missed.length} ${plural(S.missed.length,'напоминание','напоминания','напоминаний')}.</b></p><div class="panel">${rows}</div><div class="row"><button class="btn ghost" data-act="missed-ok">Понятно</button></div></div>`;
+  }
+  const ns=notifState();
+  if(S.settings.hintNotif&&ns!=='granted'&&ns!=='denied'){
+    const txt=(ns==='unsupported'&&isIOS&&!standalone)?'Чтобы получать уведомления на iPhone, добавьте приложение на экран «Домой» и откройте его оттуда.':'Включите уведомления, чтобы напоминания всплывали поверх других вкладок.';
+    h+=`<div class="note info"><p>${txt} Для напоминаний, которые нельзя пропустить, используйте кнопку «В календарь iPhone» в карточке задачи.</p><div class="row">${ns==='default'?'<button class="btn" data-act="st-perm">Включить уведомления</button>':'<button class="btn" data-act="settings">Как установить</button>'}<button class="btn ghost" data-act="hint-off">Скрыть</button></div></div>`;
+  }
+  if(S.items.some(i=>i.sample))h+=`<div class="note"><p>Сейчас в списке примеры, чтобы было видно, как всё работает. Проекты оставлены ваши: «Звезда», «Цифровое телевидение», «Спутниковое ТВ», «Личное».</p><div class="row"><button class="btn ghost" data-act="del-samples">Удалить примеры</button></div></div>`;
+  h+=filterChips();
+  h+=`<form class="sec" id="qa" autocomplete="off"><div class="qa"><input id="qa-in" class="field" placeholder="Быстро добавить задачу…" enterkeyhint="done" aria-label="Быстро добавить задачу"><button class="btn" type="submit">Добавить</button></div><div class="qa-prev" id="qa-prev"></div></form>`;
+  if(!act.length){h+=`<div class="empty">Задач нет. Добавьте первую строкой выше или кнопкой «+».</div>`;return h}
+  if(over.length)h+=sec('Просрочено',listHTML(over),over.length);
+  h+=sec('Главное сейчас',listHTML(top,'Всё важное уже выше'),null);
+  if(todayL.length)h+=sec('Ещё со сроком сегодня',listHTML(todayL),todayL.length);
+  if(rems.length)h+=sec('Напоминания сегодня',`<div class="panel">${rems.map(({i,t})=>`<button class="trow" data-act="open" data-id="${i.id}"><span class="tt">${hhmm(t)}</span><span class="tn">${esc(i.title)}</span>${proj(i.projectId)?`<i class="pdot" style="--c:${proj(i.projectId).color}"></i>`:''}</button>`).join('')}</div>`,rems.length);
+  if(left>0)h+=`<button class="linkbtn" data-act="tab" data-v="matrix">Ещё ${left} ${plural(left,'запись','записи','записей')} в матрице →</button>`;
+  return h;
+}
+
+function vMatrix(){
+  const now=new Date(),Q={1:[],2:[],3:[],4:[]};
+  active().forEach(i=>Q[quad(i,now)].push(i));
+  const quadHTML=q=>`<div class="quad q${q}" data-q="${q}"><h3><span>${QN[q]}<b class="n">${Q[q].length}</b></span><small>${QH[q]}</small></h3>
+    ${Q[q].sort(byScore).map(i=>`<div class="mcard" data-act="open" data-id="${i.id}"><button class="grip" data-act="noop" data-grip="${i.id}" aria-label="Перетащить в другой квадрант">${IC.grip}</button>${idxHTML(i,now)}<span class="t">${esc(i.title)}</span></div>`).join('')}</div>`;
+  return filterChips()+`<div class="axes"><span>Срочно</span><span>Не срочно</span></div><div class="matrix">${[1,2,3,4].map(quadHTML).join('')}</div>
+    <p class="hint">Тяните карточку за точки, чтобы перенести её в другой квадрант: важность и срочность поменяются сами. Индекс «4·5» означает важность 4 и срочность 5; стрелка ↑ значит, что срочность поднята близким сроком.</p>`;
+}
+
+function vProjects(){
+  const now=new Date();
+  if(ui.proj){
+    const p=proj(ui.proj);if(!p){ui.proj=null;return vProjects()}
+    const ids=projIds(p.id),its=S.items.filter(i=>ids.includes(i.projectId));
+    const goals=its.filter(i=>i.type==='goal'&&i.status!=='done').sort(byScore);
+    const tasks=its.filter(i=>i.type!=='goal'&&i.status!=='done').sort(byScore);
+    const done=its.filter(i=>i.status==='done').sort((a,b)=>(b.doneAt||'').localeCompare(a.doneAt||''));
+    let h=`<div class="bar"><button class="btn" data-act="new">${svg('<path d="M12 5v14M5 12h14"/>',18)} Добавить в проект</button><button class="btn ghost" data-act="editproj">Изменить проект</button></div>`;
+    if(goals.length)h+=sec('Цели',listHTML(goals),goals.length);
+    h+=sec('Задачи и напоминания',listHTML(tasks,'Активных задач нет'),tasks.length);
+    if(done.length)h+=`<button class="linkbtn" data-act="showdone">${ui.showDone?'Скрыть выполненные':`Показать выполненные (${done.length})`}</button>`+(ui.showDone?listHTML(done):'');
+    return h;
+  }
+  const rows=ordered().map(({p,dep})=>{
+    const ids=projIds(p.id),its=S.items.filter(i=>ids.includes(i.projectId)&&i.status!=='done'),hot=its.filter(i=>quad(i,now)===1).length,ov=its.filter(i=>isOver(i,now)).length;
+    return `<button class="prow" style="margin-left:${dep*22}px" data-act="proj" data-id="${p.id}"><i class="pdot lg" style="--c:${p.color}"></i><span class="pmain"><span class="pn">${esc(p.name)}</span><span class="pc">#${esc(p.tag)} · ${its.length} ${plural(its.length,'активная','активные','активных')}${ov?` · ${ov} просрочено`:''}</span></span>${hot?`<span class="hot" title="Сделать сейчас">${hot}</span>`:''}${IC.next}</button>`;
+  }).join('');
+  return `<div class="list">${rows||'<div class="empty">Проектов пока нет</div>'}</div>
+    <div class="bar"><button class="btn" data-act="newproj">${svg('<path d="M12 5v14M5 12h14"/>',18)} Новый проект</button></div>
+    <p class="hint">Красный кружок показывает, сколько задач в проекте нужно сделать сейчас. Тег проекта работает в быстром вводе: «Позвонить в ГПМ #звезда».</p>`;
+}
+
+function vCal(){
+  const now=new Date();
+  if(!ui.calMonth){ui.calMonth=new Date(now.getFullYear(),now.getMonth(),1);ui.calSel=dayKey(now)}
+  const m=ui.calMonth,off=(m.getDay()+6)%7,start=addDays(m,-off),dim=new Date(m.getFullYear(),m.getMonth()+1,0).getDate(),cells=Math.ceil((off+dim)/7)*7;
+  const map={};S.items.filter(i=>i.status!=='done'&&inFilter(i)&&i.due).forEach(i=>{const k=dayKey(dueOf(i));(map[k]=map[k]||[]).push(i)});
+  let g=['пн','вт','ср','чт','пт','сб','вс'].map(w=>`<div class="wd">${w}</div>`).join('');
+  for(let k=0;k<cells;k++){
+    const d=addDays(start,k),key=dayKey(d),its=(map[key]||[]).sort(byScore);
+    const dots=its.slice(0,3).map(i=>`<i class="q${quad(i,now)}"></i>`).join('');
+    g+=`<button class="cday${d.getMonth()!==m.getMonth()?' out':''}${sameDay(d,now)?' today':''}" data-act="cal-day" data-v="${key}" aria-pressed="${ui.calSel===key}" aria-label="${d.getDate()} ${MG[d.getMonth()]}, ${its.length} ${plural(its.length,'запись','записи','записей')}">${d.getDate()}<span class="dots">${dots}</span></button>`;
+  }
+  const sel=parseLocal(ui.calSel),list=(map[ui.calSel]||[]).sort(cmpDue);
+  return filterChips()+`<div class="cal-head"><button class="icon-btn" data-act="cal-prev" aria-label="Предыдущий месяц">${IC.back}</button><h2>${MN[m.getMonth()]} ${m.getFullYear()}</h2><button class="chip" data-act="cal-today">Сегодня</button><button class="icon-btn" data-act="cal-next" aria-label="Следующий месяц">${IC.next}</button></div>
+    <div class="cal">${g}</div>
+    ${sec(`${sel.getDate()} ${MG[sel.getMonth()]}, ${WD[sel.getDay()].toLowerCase()}`,listHTML(list,'На этот день сроков нет'),list.length||null)}
+    <button class="linkbtn" data-act="new-on-day">+ Добавить задачу на этот день</button>`;
+}
+
+const TITLES={today:'Сегодня',matrix:'Матрица',projects:'Проекты',cal:'Календарь'};
+function render(){
+  const inProj=ui.view==='projects'&&ui.proj;
+  $('#title').textContent=inProj?(proj(ui.proj)||{}).name||'Проект':TITLES[ui.view];
+  $('#back').hidden=!inProj;
+  $$('.tab').forEach(b=>b.setAttribute('aria-current',b.dataset.v===ui.view?'page':'false'));
+  $('#view').innerHTML={today:vToday,matrix:vMatrix,projects:vProjects,cal:vCal}[ui.view]();
+  if(ui.view==='today')bindQuick();
+  store();
+}
+function softRender(){const a=document.activeElement;if(a&&$('#view').contains(a)&&/INPUT|TEXTAREA/.test(a.tagName))return;if(!$('#sheet').hidden)return;render()}
+
+/* ---------- quick add ---------- */
+function parseQuick(text){
+  const now=new Date(),it={},T=sod(now);let s=' '+text.replace(/\s+/g,' ')+' ',date=null,time=null,badProj=null,rems=[];
+  const take=(re,fn)=>{s=s.replace(re,(...m)=>fn(m)===false?m[0]:' ')};
+  take(/^\s(цель):?(?=\s)/i,()=>{it.type='goal'});
+  take(/^\s(напомнить|напомни|напоминание):?(?=\s)/i,()=>{it.type='reminder'});
+  take(/\s#([^\s#]+)(?=\s)/,m=>{const q=m[1].toLowerCase();const p=S.projects.find(p=>p.tag.toLowerCase()===q)||S.projects.find(p=>p.tag.toLowerCase().startsWith(q))||S.projects.find(p=>p.name.toLowerCase().includes(q));if(p)it.projectId=p.id;else badProj=m[1]});
+  take(/\s!([1-5])\s?[\/·.,:-]?\s?([1-5])(?=\s)/,m=>{it.imp=+m[1];it.urg=+m[2]});
+  take(/\s@\s?за\s?(\d+)\s?(минут[уы]?|мин|м|часа|часов|час|ч|дней|дня|день|дн|д)\.?(?=\s)/gi,m=>{const n=+m[1],u=m[2][0].toLowerCase();rems.push(u==='м'?n:u==='ч'?n*60:n*1440)});
+  take(/\s(?:в\s)?(\d{1,2}):(\d{2})(?=\s)/,m=>{if(+m[1]>23||+m[2]>59)return false;time=[+m[1],+m[2]]});
+  take(/\sв\s(\d{1,2})(?=\s)/,m=>{if(+m[1]>23)return false;time=[+m[1],0]});
+  take(/\s(сегодня)(?=\s)/i,()=>{date=T});
+  take(/\s(послезавтра)(?=\s)/i,()=>{date=addDays(T,2)});
+  take(/\s(завтра)(?=\s)/i,()=>{date=addDays(T,1)});
+  take(/\sчерез\s(\d+)\s?(недел[юиь]|нед|дней|дня|день|дн|д)(?=\s)/i,m=>{const n=+m[1];date=addDays(T,m[2][0].toLowerCase()==='н'?n*7:n)});
+  take(/\s(?:во?\s)?(пн|вт|ср|чт|пт|сб|вс|понедельник|вторник|среду|среда|четверг|пятницу|пятница|субботу|суббота|воскресенье)(?=\s)/i,m=>{
+    const k=m[1].toLowerCase().slice(0,2),map={пн:1,по:1,вт:2,ср:3,че:4,чт:4,пя:5,пт:5,су:6,сб:6,во:0,вс:0};
+    let diff=(map[k]-T.getDay()+7)%7;if(diff===0)diff=7;date=addDays(T,diff)});
+  take(/\s(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?(?=\s)/,m=>{
+    if(+m[2]<1||+m[2]>12||+m[1]<1||+m[1]>31)return false;
+    let y=m[3]?+m[3]:now.getFullYear();if(y<100)y+=2000;const d=new Date(y,+m[2]-1,+m[1]);if(!m[3]&&d<T)d.setFullYear(y+1);date=d});
+  if(date||time){let dt=at(date||T,...(time||[18,0]));if(!date&&dt<now)dt=addDays(dt,1);it.due=toLocal(dt)}
+  it.reminders=it.due?rems.map(rel):[];
+  if(it.type==='reminder'&&it.due&&!it.reminders.length)it.reminders.push(rel(0));
+  const title=s.replace(/\s+/g,' ').trim();
+  if(!it.projectId&&ui.filter!=='all')it.projectId=ui.filter;
+  return {title,item:Object.assign({title},it),badProj,remNoDue:rems.length&&!it.due};
+}
+function bindQuick(){
+  const f=$('#qa'),inp=$('#qa-in'),pv=$('#qa-prev');if(!f)return;
+  const upd=()=>{
+    if(!inp.value.trim()){pv.innerHTML='<span class="muted">Можно одной строкой:</span> <code>Сверить сетку #звезда !4/5 завтра 15:00 @за 2ч</code>';return}
+    const r=parseQuick(inp.value),i=mkItem(r.item),p=proj(i.projectId),c=[];
+    c.push(`<span class="chip q${quad(i)}">${idxHTML(i)} ${QN[quad(i)]}</span>`);
+    c.push(p?`<span class="chip"><i class="pdot" style="--c:${p.color}"></i>${esc(p.name)}</span>`:'<span class="chip">Без проекта</span>');
+    if(r.badProj)c.push(`<span class="chip warn">Нет проекта #${esc(r.badProj)}</span>`);
+    if(i.type!=='task')c.push(`<span class="chip">${TYPES[i.type]}</span>`);
+    if(i.due)c.push(`<span class="chip">${fmtDue(dueOf(i))}</span>`);
+    i.reminders.forEach(x=>c.push(`<span class="chip">${IC.bell} ${remText(i,x).toLowerCase()}</span>`));
+    if(r.remNoDue)c.push('<span class="chip warn">Для «@за…» нужен срок</span>');
+    pv.innerHTML=c.join('');
+  };
+  inp.addEventListener('input',upd);upd();
+  f.addEventListener('submit',e=>{
+    e.preventDefault();const r=parseQuick(inp.value);if(!r.title){inp.focus();return}
+    const i=mkItem(r.item);snapshot();S.items.push(i);render();
+    toast(`Добавлено: ${i.imp}·${effUrg(i)} «${esc(i.title)}»`,{acts:[{label:'Открыть',act:'open',id:i.id},{label:'Отменить',act:'undo'}]});
+    const n=$('#qa-in');if(n)n.focus();
+  });
+}
+
+/* ---------- actions on items ---------- */
+function snapshot(){ui.undo=JSON.stringify(S.items)}
+function nextDue(d,rep){
+  const x=new Date(d);
+  if(rep==='daily')x.setDate(x.getDate()+1);
+  else if(rep==='weekdays'){do{x.setDate(x.getDate()+1)}while(x.getDay()===0||x.getDay()===6)}
+  else if(rep==='weekly')x.setDate(x.getDate()+7);
+  else if(rep==='monthly')x.setMonth(x.getMonth()+1);
+  return x;
+}
+function complete(i){
+  const now=new Date();
+  if(i.repeat!=='none'&&i.due){
+    let nd=nextDue(dueOf(i),i.repeat);while(nd<now)nd=nextDue(nd,i.repeat);
+    i.due=toLocal(nd);i.reminders=i.reminders.filter(r=>r.kind==='rel');i.reminders.forEach(r=>r.fired=false);i.status='todo';
+    return `Готово. Следующий срок: ${fmtDue(nd)}`;
+  }
+  i.status='done';i.doneAt=toLocal(now);return 'Готово';
+}
+function toggleDone(id){
+  const i=item(id);if(!i)return;snapshot();let msg;
+  if(i.status==='done'){i.status='todo';i.doneAt='';msg='Вернул в работу'}else msg=complete(i);
+  render();toast(msg,{acts:[{label:'Отменить',act:'undo'}]});
+}
+function snoozeDay(id){
+  const i=item(id);if(!i)return;snapshot();
+  const d=dueOf(i),tom=addDays(sod(new Date()),1),nd=d?at(tom,d.getHours(),d.getMinutes()):at(tom,10);
+  i.due=toLocal(nd);i.reminders.forEach(r=>{if(r.kind==='rel')r.fired=false});
+  render();toast(`Перенёс на ${fmtDue(nd)}`,{acts:[{label:'Отменить',act:'undo'}]});
+}
+function moveToQuad(id,q){
+  const i=item(id);if(!i)return;snapshot();
+  i.imp=q<=2?Math.max(i.imp,4):Math.min(i.imp,3);
+  i.urg=(q===1||q===3)?Math.max(i.urg,4):Math.min(i.urg,3);
+  render();
+  if(quad(i)!==q)toast('Срок близко, поэтому срочность поднята автоматически. Чтобы перенести карточку, выключите «Автосрочность» в задаче.',{acts:[{label:'Отменить',act:'undo'}]});
+  else toast(`«${QN[q]}»: теперь ${i.imp}·${effUrg(i)}`,{acts:[{label:'Отменить',act:'undo'}]});
+}
+
+/* ---------- notifications ---------- */
+function notifState(){if(!('Notification' in window))return 'unsupported';return Notification.permission}
+async function systemNotify(title,body,tag){
+  try{
+    if(notifState()!=='granted')return false;
+    if('serviceWorker' in navigator){const reg=await navigator.serviceWorker.getRegistration();if(reg){await reg.showNotification(title,{body,tag,icon:'icon-192.png'});return true}}
+    new Notification(title,{body,tag});return true;
+  }catch(e){return false}
+}
+function notifyItem(i){
+  const p=proj(i.projectId),body=[p&&p.name,i.due&&fmtDue(dueOf(i))].filter(Boolean).join(' · ');
+  systemNotify(`${i.imp}·${effUrg(i)} ${i.title}`,body,i.id);
+  toast(`<b>${esc(i.title)}</b><br><span>${esc(body)}</span>`,{icon:IC.bellLg,sticky:true,acts:[{label:'Готово',act:'toggle',id:i.id},{label:'+15 мин',act:'snooze15',id:i.id},{label:'Закрыть',act:'noop'}]});
+}
+function digestText(){
+  const now=new Date(),act=activeAll();
+  const ov=act.filter(i=>isOver(i,now)).length,hot=act.filter(i=>quad(i,now)===1).length,td=act.filter(i=>dueOf(i)&&sameDay(dueOf(i),now)).length;
+  return `${ov} просрочено · ${hot} ${plural(hot,'горит','горят','горят')} · ${td} со сроком сегодня`;
+}
+function tick(){
+  const now=new Date();let changed=false;const fresh=[];
+  S.items.forEach(i=>{if(i.status==='done')return;i.reminders.forEach(r=>{
+    if(r.fired)return;const t=fireTime(i,r);if(!t||t>now)return;
+    r.fired=true;changed=true;
+    if(now-t<3*60e3)fresh.push(i);else S.missed.push({id:i.id,t:toLocal(t)});
+  })});
+  if(S.missed.length>50)S.missed=S.missed.slice(-50);
+  fresh.forEach(notifyItem);
+  const dk=dayKey(now),dg=(S.settings.digest||'').split(':');
+  if(S.settings.digest&&S.settings.lastDigest!==dk){
+    const dt=at(now,+dg[0],+dg[1]||0);
+    if(now>=dt){S.settings.lastDigest=dk;changed=true;if(now-dt<30*60e3){systemNotify('План на сегодня',digestText(),'digest');toast(`<b>План на сегодня</b><br>${digestText()}`,{sticky:true,acts:[{label:'Закрыть',act:'noop'}]})}}
+  }
+  if(changed){store();softRender()}
+}
+
+/* ---------- files ---------- */
+function icsEsc(s){return String(s).replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;')}
+const icsDate=d=>d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+function fold(line){const enc=new TextEncoder();let out='',cur='',n=0;for(const ch of line){const b=enc.encode(ch).length;if(n+b>74){out+=cur+'\r\n ';cur='';n=1}cur+=ch;n+=b}return out+cur}
+function icsFor(i){
+  let start=dueOf(i);if(!start){const a=i.reminders.find(r=>r.kind==='abs');start=a&&parseLocal(a.at)}
+  if(!start)return null;
+  const p=proj(i.projectId),end=new Date(+start+30*6e4);
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Pult//Planner//RU','CALSCALE:GREGORIAN','METHOD:PUBLISH','BEGIN:VEVENT',
+    `UID:${i.id}@pult`,`DTSTAMP:${icsDate(new Date())}`,`DTSTART:${icsDate(start)}`,`DTEND:${icsDate(end)}`,
+    `SUMMARY:${icsEsc(`[${i.imp}·${i.urg}] ${i.title}`)}`,
+    `DESCRIPTION:${icsEsc([p?`Проект: ${p.name}`:'',`Важность ${i.imp}, срочность ${i.urg}`,i.notes].filter(Boolean).join('\n'))}`];
+  if(p)L.push(`CATEGORIES:${icsEsc(p.name)}`);
+  const RR={daily:'FREQ=DAILY',weekdays:'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',weekly:'FREQ=WEEKLY',monthly:'FREQ=MONTHLY'};
+  if(RR[i.repeat])L.push('RRULE:'+RR[i.repeat]);
+  (i.reminders.length?i.reminders:[{kind:'rel',min:0}]).forEach(r=>{
+    const t=r.kind==='abs'?parseLocal(r.at):null;if(r.kind==='abs'&&!t)return;
+    L.push('BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${icsEsc(i.title)}`,t?`TRIGGER;VALUE=DATE-TIME:${icsDate(t)}`:`TRIGGER:-PT${r.min}M`,'END:VALARM');
+  });
+  L.push('END:VEVENT','END:VCALENDAR');
+  return L.map(fold).join('\r\n')+'\r\n';
+}
+async function deliverFile(name,text,mime){
+  if(inFrame){toast('В этом превью сохранять файлы нельзя. В версии, установленной на iPhone, откроется меню «Поделиться».');return}
+  try{const f=new File([text],name,{type:mime});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}
+  catch(e){if(e&&e.name==='AbortError')return}
+  const url=URL.createObjectURL(new Blob([text],{type:mime})),a=document.createElement('a');
+  a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
+
+/* ---------- toast ---------- */
+function toast(msg,{acts=[],sticky=false,icon=''}={}){
+  const box=$('#toasts'),t=document.createElement('div');t.className='toast'+(sticky?' sticky':'');t.setAttribute('role','status');
+  t.innerHTML=`${icon}<div class="tmsg">${msg}</div>${acts.length?`<div class="tacts">${acts.map(a=>`<button data-act="${a.act}"${a.id?` data-id="${a.id}"`:''}>${a.label}</button>`).join('')}</div>`:''}`;
+  box.append(t);
+  const kill=()=>{t.classList.add('out');setTimeout(()=>t.remove(),200)};
+  t.addEventListener('click',e=>{if(e.target.closest('button'))setTimeout(kill,0)});
+  if(!sticky)setTimeout(kill,acts.length?6000:3500);
+  while(box.children.length>3)box.firstElementChild.remove();
+}
+
+/* ---------- sheet ---------- */
+let mode=null,ed=null,edNew=false,delArm=false,pe=null,peNew=false;
+function showSheet(html,m){mode=m;$$('.toast:not(.sticky)').forEach(t=>t.remove());const s=$('#sheet');$('#sheet-panel').innerHTML=html;s.hidden=false;$('#sheet-panel').scrollTop=0;document.body.style.overflow='hidden'}
+function closeSheet(){$('#sheet').hidden=true;document.body.style.overflow='';mode=null;ed=null;pe=null}
+function refreshSheet(fn){const p=$('#sheet-panel'),st=p.scrollTop;p.innerHTML=fn();p.scrollTop=st}
+const head=t=>`<div class="sheet-head"><h2>${t}</h2><button class="icon-btn" data-act="close" aria-label="Закрыть">${IC.close}</button></div>`;
+const segHTML=(act,opts,val)=>`<div class="seg" role="group">${opts.map(([v,l])=>`<button type="button" data-act="${act}" data-v="${v}" aria-pressed="${String(v)===String(val)}">${l}</button>`).join('')}</div>`;
+const lvlHTML=(act,val,lo,hi)=>`<div class="seg lvl" role="group">${[1,2,3,4,5].map(n=>`<button type="button" data-act="${act}" data-v="${n}" aria-pressed="${n===val}">${n}</button>`).join('')}</div><div class="cap"><span>${lo}</span><span>${hi}</span></div>`;
+const projOptions=(sel,excl)=>ordered().filter(({p})=>!excl||!excl.includes(p.id)).map(({p,dep})=>`<option value="${p.id}"${p.id===sel?' selected':''}>${'— '.repeat(dep)}${esc(p.name)}</option>`).join('');
+
+/* item editor */
+function openEditor(i,preset){
+  edNew=!i;delArm=false;
+  const def=(ui.view==='projects'&&ui.proj)?ui.proj:(ui.filter!=='all'?ui.filter:((S.projects[0]||{}).id||null));
+  ed=i?JSON.parse(JSON.stringify(i)):mkItem(Object.assign({projectId:def},preset||{}));
+  showSheet(edHTML(),'ed');
+}
+function prevHTML(){
+  const now=new Date(),q=quad(ed,now),eu=effUrg(ed,now);
+  return `<div class="idxprev q${q}" id="idxprev">${idxHTML(ed,now)}<div><b>${QN[q]}</b><span class="muted">${QH[q]} · балл ${ed.imp*eu} из 25${eu>ed.urg?` · срочность поднята сроком с ${ed.urg} до ${eu}`:''}</span></div></div>`;
+}
+function remRows(){
+  if(!ed.reminders.length)return '<span class="muted" style="font-size:14px">Напоминаний нет</span>';
+  return ed.reminders.map(r=>`<div class="remrow">${IC.bell}<span>${remText(ed,r)}</span>${r.fired?'<span class="muted">сработало</span>':''}<button type="button" class="icon-btn sm" data-act="ed-delrem" data-id="${r.id}" aria-label="Удалить напоминание">${IC.close}</button></div>`).join('');
+}
+function edHTML(){
+  const goals=S.items.filter(g=>g.type==='goal'&&g.id!==ed.id&&g.status!=='done');
+  const subs=S.items.filter(x=>x.parentId===ed.id);
+  return `${head(edNew?'Новая запись':TYPES[ed.type])}
+  ${segHTML('ed-type',Object.entries(TYPES),ed.type)}
+  <label class="fld"><span class="lbl">Название</span><textarea id="f-title" rows="2" class="field ta" placeholder="Что нужно сделать">${esc(ed.title)}</textarea></label>
+  ${prevHTML()}
+  <div class="fld"><span class="lbl">Важность</span>${lvlHTML('ed-imp',ed.imp,'мелочь','критично')}</div>
+  <div class="fld"><span class="lbl">Срочность</span>${lvlHTML('ed-urg',ed.urg,'когда-нибудь','горит')}</div>
+  <label class="switch"><input type="checkbox" id="f-auto"${ed.autoUrg?' checked':''}><span>Автосрочность: за 3 дня до срока срочность не ниже 4, в день срока и после него 5</span></label>
+  <div class="row2">
+    <label class="fld"><span class="lbl">Проект</span><select id="f-proj" class="field"><option value="">Без проекта</option>${projOptions(ed.projectId)}</select></label>
+    ${ed.type!=='goal'?`<label class="fld"><span class="lbl">Цель</span><select id="f-parent" class="field"><option value="">Не входит в цель</option>${goals.map(g=>`<option value="${g.id}"${g.id===ed.parentId?' selected':''}>${esc(g.title)}</option>`).join('')}</select></label>`:''}
+  </div>
+  <div class="fld"><span class="lbl">${ed.type==='reminder'?'Когда напомнить':'Срок исполнения'}</span>
+    <input type="datetime-local" id="f-due" class="field" value="${ed.due}">
+    <div class="chips wrap">${[['today','Сегодня 18:00'],['tom','Завтра 10:00'],['week','Через неделю'],['clear','Без срока']].map(([v,l])=>`<button type="button" class="chip" data-act="ed-due" data-v="${v}">${l}</button>`).join('')}</div></div>
+  <div class="fld"><span class="lbl">Напоминания</span><div id="remlist" class="remlist">${remRows()}</div>
+    <div class="chips wrap">${[[0,'В момент срока'],[15,'За 15 мин'],[60,'За 1 час'],[1440,'За 1 день']].map(([m,l])=>`<button type="button" class="chip" data-act="ed-addrel" data-v="${m}">+ ${l}</button>`).join('')}</div>
+    <div class="qa"><input type="datetime-local" id="f-remat" class="field" aria-label="Своё время напоминания"><button type="button" class="btn ghost" data-act="ed-addabs">Добавить</button></div></div>
+  <div class="row2">
+    <label class="fld"><span class="lbl">Повтор</span><select id="f-rep" class="field">${Object.entries(REP).map(([v,l])=>`<option value="${v}"${v===ed.repeat?' selected':''}>${l}</option>`).join('')}</select></label>
+    <label class="fld"><span class="lbl">Статус</span><select id="f-status" class="field">${Object.entries(STAT).map(([v,l])=>`<option value="${v}"${v===ed.status?' selected':''}>${l}</option>`).join('')}</select></label>
+  </div>
+  <label class="fld"><span class="lbl">Заметки</span><textarea id="f-notes" rows="3" class="field ta" placeholder="Контакты, ссылки, детали">${esc(ed.notes)}</textarea></label>
+  ${ed.type==='goal'&&!edNew?`<div class="fld"><span class="lbl">Подзадачи · ${subs.filter(x=>x.status==='done').length} из ${subs.length}</span><div class="subs">${subs.map(x=>`<button type="button" class="trow panel" data-act="ed-sub" data-id="${x.id}"><span class="tn">${x.status==='done'?'✓ ':''}${esc(x.title)}</span>${idxHTML(x)}</button>`).join('')}</div><button type="button" class="btn ghost" data-act="ed-addsub">+ Подзадача</button></div>`:''}
+  <div class="foot">
+    <button type="button" class="btn" data-act="ed-save">Сохранить</button>
+    ${!edNew?`<button type="button" class="btn ghost" data-act="ed-done">${ed.status==='done'?'Вернуть в работу':'Выполнено'}</button>`:''}
+    <button type="button" class="btn ghost" data-act="ed-ics">${IC.calSm} В календарь iPhone</button>
+    ${!edNew?`<button type="button" class="btn ghost danger${delArm?' armed':''}" data-act="ed-del">${delArm?'Точно удалить?':'Удалить'}</button>`:''}
+  </div>`;
+}
+function readEd(){
+  const g=id=>document.getElementById(id);if(!ed)return;
+  if(g('f-title'))ed.title=g('f-title').value;if(g('f-notes'))ed.notes=g('f-notes').value;
+  if(g('f-proj'))ed.projectId=g('f-proj').value||null;if(g('f-parent'))ed.parentId=g('f-parent').value||null;
+  if(g('f-due'))ed.due=g('f-due').value;if(g('f-rep'))ed.repeat=g('f-rep').value;
+  if(g('f-status'))ed.status=g('f-status').value;if(g('f-auto'))ed.autoUrg=g('f-auto').checked;
+}
+function updPrev(){const el=$('#idxprev');if(el)el.outerHTML=prevHTML()}
+function saveEd(){
+  ed.title=ed.title.trim();ed.sample=false;
+  if(ed.type==='goal')ed.parentId=null;
+  if(ed.type==='reminder'&&ed.due&&!ed.reminders.length)ed.reminders.push(rel(0));
+  const now=new Date();ed.reminders=ed.reminders.filter(r=>r.kind==='abs'||ed.due);
+  ed.reminders.forEach(r=>{const t=fireTime(ed,r);if(t&&t>now)r.fired=false});
+  if(ed.status==='done'&&!ed.doneAt)ed.doneAt=toLocal(now);if(ed.status!=='done')ed.doneAt='';
+  const k=S.items.findIndex(x=>x.id===ed.id);if(k>=0)S.items[k]=ed;else S.items.push(ed);
+  store();
+}
+
+/* project editor */
+function openProj(p){
+  peNew=!p;delArm=false;
+  pe=p?Object.assign({},p):{id:uid(),name:'',tag:'',color:COLORS[S.projects.length%COLORS.length],parentId:null};
+  showSheet(peHTML(),'pe');
+}
+function peHTML(){
+  return `${head(peNew?'Новый проект':'Проект')}
+  <label class="fld"><span class="lbl">Название</span><input id="p-name" class="field" value="${esc(pe.name)}" placeholder="Например, «Подкаст» или «Ремонт»"></label>
+  <label class="fld"><span class="lbl">Тег для быстрого ввода</span><input id="p-tag" class="field" value="${esc(pe.tag)}" placeholder="подкаст" autocapitalize="off"></label>
+  <div class="fld"><span class="lbl">Цвет</span><div class="swatches">${COLORS.map(c=>`<button type="button" class="sw" style="--c:${c}" data-act="pe-color" data-v="${c}" aria-label="Цвет ${c}" aria-pressed="${c===pe.color}"></button>`).join('')}</div></div>
+  <label class="fld"><span class="lbl">Входит в</span><select id="p-parent" class="field"><option value="">Самостоятельный проект</option>${projOptions(pe.parentId,peNew?[]:projIds(pe.id))}</select></label>
+  <div class="foot"><button type="button" class="btn" data-act="pe-save">Сохранить</button>${!peNew?`<button type="button" class="btn ghost danger${delArm?' armed':''}" data-act="pe-del">${delArm?'Точно удалить? Задачи останутся':'Удалить проект'}</button>`:''}</div>`;
+}
+function readPe(){pe.name=$('#p-name').value.trim();pe.tag=$('#p-tag').value.trim().replace(/^#/,'').replace(/\s+/g,'').toLowerCase();pe.parentId=$('#p-parent').value||null}
+
+/* settings */
+function setHTML(){
+  const ns=notifState();
+  const st={unsupported:(isIOS&&!standalone)?'На iPhone уведомления работают, только когда приложение добавлено на экран «Домой» и открыто оттуда.':'Этот браузер не показывает системные уведомления. Напоминания будут всплывать внутри приложения.',
+    default:'Уведомления выключены.',
+    granted:'Уведомления включены. Они приходят, пока приложение открыто. Свёрнутое приложение iPhone усыпляет, и напоминание покажется, когда вы его откроете.',
+    denied:'Уведомления запрещены. Разрешите их в «Настройки» → «Уведомления» → «Пульт».'}[ns];
+  const nSamples=S.items.filter(i=>i.sample).length;
+  return `${head('Настройки')}
+  ${inFrame?'<div class="note info"><p>Это превью. Системные уведомления и сохранение файлов заработают в версии, установленной на iPhone.</p></div>':''}
+  <div class="fld"><span class="lbl">Уведомления</span><div class="note"><p>${st}</p><div class="row">${ns==='default'?'<button class="btn" data-act="st-perm">Разрешить</button>':''}<button class="btn ghost" data-act="st-test">Проверить через 5 секунд</button></div></div></div>
+  <label class="fld"><span class="lbl">Утренняя сводка</span><input type="time" id="s-digest" class="field" value="${S.settings.digest}"><span class="muted" style="font-size:13px">Сводка «просрочено · горят · сегодня» приходит в это время, если приложение открыто. Иначе она будет вверху экрана «Сегодня».</span></label>
+  <div class="fld"><span class="lbl">Тема</span>${segHTML('st-theme',[['auto','Как в системе'],['light','Светлая'],['dark','Тёмная']],S.settings.theme)}</div>
+  <div class="fld"><span class="lbl">Данные</span>
+    <div class="note"><p>Все задачи хранятся только на этом устройстве. Раз в неделю сохраняйте копию: если удалить приложение с экрана «Домой», данные пропадут.</p>
+    <div class="row"><button class="btn ghost" data-act="st-export">Сохранить копию</button><label class="btn ghost" for="s-file">Загрузить копию</label><input type="file" id="s-file" accept=".json,application/json" hidden></div>
+    ${ui.importData?`<div class="row"><button class="btn armed" data-act="st-import-ok">Заменить данные: ${ui.importData.items.length} ${plural(ui.importData.items.length,'запись','записи','записей')}, ${ui.importData.projects.length} ${plural(ui.importData.projects.length,'проект','проекта','проектов')}</button></div>`:''}
+    <div class="row">${nSamples?`<button class="btn ghost" data-act="del-samples">Удалить примеры (${nSamples})</button>`:''}<button class="btn ghost danger${delArm?' armed':''}" data-act="st-reset">${delArm?'Точно стереть всё?':'Стереть всё'}</button></div></div></div>
+  <div class="fld"><span class="lbl">Как установить на iPhone</span><div class="note"><ol class="steps"><li>Откройте адрес приложения в Safari.</li><li>Нажмите «Поделиться» → «На экран „Домой“».</li><li>Запустите «Пульт» с иконки и разрешите уведомления в настройках приложения.</li><li>Для важных сроков жмите в карточке «В календарь iPhone»: календарь напомнит, даже если «Пульт» закрыт.</li></ol></div></div>`;
+}
+function applyTheme(){const t=S.settings.theme,r=document.documentElement;if(t==='auto'){if(hostTheme)r.setAttribute('data-theme',hostTheme);else r.removeAttribute('data-theme')}else r.setAttribute('data-theme',t)}
+
+/* ---------- action map ---------- */
+const ACT={
+  noop(){},
+  tab(el){ui.view=el.dataset.v;ui.proj=null;ui.showDone=false;render();window.scrollTo(0,0)},
+  filter(el){ui.filter=el.dataset.v;render()},
+  open(el,id){const i=item(id);if(i)openEditor(i)},
+  toggle(el,id){toggleDone(id)},
+  new(){openEditor(null)},
+  close(){closeSheet()},
+  undo(){if(!ui.undo)return;S.items=JSON.parse(ui.undo);ui.undo=null;render();toast('Отменено')},
+  snooze15(el,id){const i=item(id);if(!i)return;i.reminders.push({id:uid(),kind:'abs',at:toLocal(new Date(Date.now()+15*6e4)),fired:false});store();softRender();toast('Напомню через 15 минут')},
+  'missed-ok'(){S.missed=[];render()},
+  'hint-off'(){S.settings.hintNotif=false;render()},
+  'del-samples'(){snapshot();const ids=new Set(S.items.filter(i=>i.sample).map(i=>i.id));S.items=S.items.filter(i=>!i.sample);S.items.forEach(i=>{if(ids.has(i.parentId))i.parentId=null});S.missed=S.missed.filter(m=>!ids.has(m.id));render();if(mode==='set')refreshSheet(setHTML);toast('Примеры удалены',{acts:[{label:'Отменить',act:'undo'}]})},
+  pback(){ui.proj=null;ui.showDone=false;render()},
+  proj(el,id){ui.proj=id;ui.showDone=false;render();window.scrollTo(0,0)},
+  showdone(){ui.showDone=!ui.showDone;render()},
+  newproj(){openProj(null)},
+  editproj(){const p=proj(ui.proj);if(p)openProj(p)},
+  'cal-prev'(){ui.calMonth=new Date(ui.calMonth.getFullYear(),ui.calMonth.getMonth()-1,1);render()},
+  'cal-next'(){ui.calMonth=new Date(ui.calMonth.getFullYear(),ui.calMonth.getMonth()+1,1);render()},
+  'cal-today'(){const n=new Date();ui.calMonth=new Date(n.getFullYear(),n.getMonth(),1);ui.calSel=dayKey(n);render()},
+  'cal-day'(el){ui.calSel=el.dataset.v;const d=parseLocal(el.dataset.v);if(d.getMonth()!==ui.calMonth.getMonth())ui.calMonth=new Date(d.getFullYear(),d.getMonth(),1);render()},
+  'new-on-day'(){openEditor(null,{due:ui.calSel+'T10:00'})},
+  settings(){delArm=false;showSheet(setHTML(),'set')},
+
+  'ed-type'(el){readEd();ed.type=el.dataset.v;refreshSheet(edHTML)},
+  'ed-imp'(el){ed.imp=+el.dataset.v;$$('[data-act="ed-imp"]').forEach(b=>b.setAttribute('aria-pressed',b===el));readEd();updPrev()},
+  'ed-urg'(el){ed.urg=+el.dataset.v;$$('[data-act="ed-urg"]').forEach(b=>b.setAttribute('aria-pressed',b===el));readEd();updPrev()},
+  'ed-due'(el){
+    const T=sod(new Date()),v=el.dataset.v;
+    const d=v==='today'?at(T,18):v==='tom'?at(addDays(T,1),10):v==='week'?at(addDays(T,7),10):null;
+    $('#f-due').value=d?toLocal(d):'';readEd();updPrev();$('#remlist').innerHTML=remRows();
+  },
+  'ed-addrel'(el){readEd();if(!ed.due){toast('Сначала укажите срок');return}const m=+el.dataset.v;if(!ed.reminders.some(r=>r.kind==='rel'&&r.min===m))ed.reminders.push(rel(m));$('#remlist').innerHTML=remRows()},
+  'ed-addabs'(){const v=$('#f-remat').value;if(!v){toast('Выберите дату и время');return}ed.reminders.push({id:uid(),kind:'abs',at:v,fired:false});$('#f-remat').value='';$('#remlist').innerHTML=remRows()},
+  'ed-delrem'(el,id){ed.reminders=ed.reminders.filter(r=>r.id!==id);$('#remlist').innerHTML=remRows()},
+  'ed-save'(){readEd();if(!ed.title.trim()){$('#f-title').classList.add('err');$('#f-title').focus();toast('Введите название');return}snapshot();const n=edNew;saveEd();closeSheet();render();toast(n?'Добавлено':'Сохранено')},
+  'ed-done'(){readEd();if(!ed.title.trim())return;const id=ed.id;saveEd();closeSheet();toggleDone(id)},
+  'ed-ics'(){readEd();const t=icsFor(ed);if(!t){toast('Укажите срок или время напоминания');return}deliverFile(`${(ed.title||'задача').slice(0,40).replace(/[\\/:*?"<>|]+/g,' ').trim()}.ics`,t,'text/calendar')},
+  'ed-del'(el){
+    if(!delArm){delArm=true;el.classList.add('armed');el.textContent='Точно удалить?';return}
+    snapshot();const id=ed.id;S.items=S.items.filter(i=>i.id!==id);S.items.forEach(i=>{if(i.parentId===id)i.parentId=null});closeSheet();render();toast('Удалено',{acts:[{label:'Отменить',act:'undo'}]});
+  },
+  'ed-addsub'(){readEd();if(!ed.title.trim())return;saveEd();const g=ed;closeSheet();openEditor(null,{parentId:g.id,projectId:g.projectId});render()},
+  'ed-sub'(el,id){readEd();if(ed.title.trim())saveEd();closeSheet();render();const i=item(id);if(i)openEditor(i)},
+
+  'pe-color'(el){pe.color=el.dataset.v;$$('.sw').forEach(b=>b.setAttribute('aria-pressed',b===el))},
+  'pe-save'(){
+    readPe();if(!pe.name){$('#p-name').classList.add('err');$('#p-name').focus();toast('Введите название проекта');return}
+    if(!pe.tag)pe.tag=(pe.name.toLowerCase().match(/[a-zа-яё0-9]+/g)||['проект']).find(w=>w.length>2)||'проект';
+    if(S.projects.some(p=>p.id!==pe.id&&p.tag===pe.tag))pe.tag+=S.projects.length;
+    const k=S.projects.findIndex(p=>p.id===pe.id);if(k>=0)S.projects[k]=pe;else S.projects.push(pe);
+    const n=peNew,name=pe.name;closeSheet();render();toast(n?`Проект «${esc(name)}» создан`:'Сохранено');
+  },
+  'pe-del'(el){
+    if(!delArm){delArm=true;refreshSheet(peHTML);return}
+    const id=pe.id,par=pe.parentId;
+    S.items.forEach(i=>{if(i.projectId===id)i.projectId=par});S.projects.forEach(p=>{if(p.parentId===id)p.parentId=par});
+    S.projects=S.projects.filter(p=>p.id!==id);if(ui.proj===id)ui.proj=null;if(ui.filter===id)ui.filter='all';
+    closeSheet();render();toast('Проект удалён');
+  },
+
+  'st-perm'(){
+    if(notifState()==='unsupported'){toast('Здесь уведомления недоступны');return}
+    try{Promise.resolve(Notification.requestPermission()).then(r=>{toast(r==='granted'?'Уведомления включены':'Уведомления не разрешены');if(mode==='set')refreshSheet(setHTML);render()}).catch(()=>toast('Браузер не дал включить уведомления'))}
+    catch(e){toast('Браузер не дал включить уведомления')}
+  },
+  'st-test'(){toast('Проверочное напоминание придёт через 5 секунд');setTimeout(()=>{systemNotify('Проверка','Уведомления «Пульта» работают','test');toast('<b>Проверка</b><br>Так будут выглядеть напоминания',{icon:IC.bellLg})},5000)},
+  'st-theme'(el){S.settings.theme=el.dataset.v;applyTheme();store();refreshSheet(setHTML)},
+  'st-export'(){deliverFile(`pult-backup-${dayKey(new Date())}.json`,JSON.stringify(S,null,1),'application/json')},
+  'st-import-ok'(){const d=ui.importData;ui.importData=null;snapshot();S=d;S.missed=S.missed||[];S.settings=Object.assign({},S.settings);applyTheme();ui.filter='all';ui.proj=null;store();closeSheet();load();render();toast('Данные загружены')},
+  'st-reset'(el){if(!delArm){delArm=true;refreshSheet(setHTML);return}S={v:1,projects:[],items:[],missed:[],settings:S.settings};ui.filter='all';ui.proj=null;delArm=false;closeSheet();render();toast('Все данные стёрты')},
+};
+
+/* ---------- events ---------- */
+let justSwiped=0,sw=null,drag=null;
+document.addEventListener('click',e=>{
+  if(Date.now()-justSwiped<400){e.preventDefault();e.stopPropagation();return}
+  const el=e.target.closest('[data-act]');if(!el)return;
+  const fn=ACT[el.dataset.act];if(fn){fn(el,el.dataset.id,e)}
+},true);
+$('#sheet-panel').addEventListener('input',e=>{
+  if(mode==='ed'&&(e.target.id==='f-due'||e.target.id==='f-auto')){readEd();updPrev();if(e.target.id==='f-due')$('#remlist').innerHTML=remRows()}
+  if(e.target.id==='f-title')e.target.classList.remove('err');
+});
+$('#sheet-panel').addEventListener('change',e=>{
+  if(mode==='ed'&&(e.target.id==='f-due'||e.target.id==='f-auto')){readEd();updPrev()}
+  if(e.target.id==='s-digest'){S.settings.digest=e.target.value;S.settings.lastDigest=(new Date()>=at(new Date(),...e.target.value.split(':').map(Number)))?dayKey(new Date()):'';store()}
+  if(e.target.id==='s-file'&&e.target.files[0]){
+    const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d&&d.v===1&&Array.isArray(d.items)&&Array.isArray(d.projects)){ui.importData=d;refreshSheet(setHTML)}else toast('Это не файл копии «Пульта»')}catch(x){toast('Не удалось прочитать файл')}};r.readAsText(e.target.files[0]);
+  }
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
+
+/* swipe on cards, drag in matrix */
+document.addEventListener('pointerdown',e=>{
+  const g=e.target.closest('[data-grip]');
+  if(g){
+    e.preventDefault();const src=g.closest('.mcard'),r=src.getBoundingClientRect(),ghost=src.cloneNode(true);
+    ghost.classList.add('drag-ghost');ghost.style.width=r.width+'px';document.body.append(ghost);src.classList.add('dragging');
+    drag={id:g.dataset.grip,src,ghost,ox:e.clientX-r.left,oy:e.clientY-r.top,from:+src.closest('.quad').dataset.q,over:null};moveGhost(e);return;
+  }
+  const card=e.target.closest('.card[data-swipe]');
+  if(!card||e.target.closest('button')||(e.pointerType==='mouse'&&e.button!==0))return;
+  sw={card,body:card.querySelector('.card-body'),x:e.clientX,y:e.clientY,dx:0,on:false,pid:e.pointerId};
+});
+function moveGhost(e){drag.ghost.style.transform=`translate(${e.clientX-drag.ox}px,${e.clientY-drag.oy}px) rotate(-2deg)`}
+document.addEventListener('pointermove',e=>{
+  if(drag){
+    moveGhost(e);const el=document.elementFromPoint(e.clientX,e.clientY),q=el&&el.closest('.quad');
+    $$('.quad').forEach(x=>x.classList.toggle('drop',x===q&&+x.dataset.q!==drag.from));drag.over=q?+q.dataset.q:null;return;
+  }
+  if(!sw)return;
+  const dx=e.clientX-sw.x,dy=e.clientY-sw.y;
+  if(!sw.on){
+    if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)*1.4){sw.on=true;sw.card.classList.add('swiping');try{sw.card.setPointerCapture(sw.pid)}catch(x){}}
+    else if(Math.abs(dy)>10){sw=null;return}else return;
+  }
+  sw.dx=dx;sw.body.style.transform=`translateX(${dx}px)`;
+});
+function endSwipe(cancel){
+  if(drag){
+    const d=drag;drag=null;d.ghost.remove();d.src.classList.remove('dragging');$$('.quad').forEach(x=>x.classList.remove('drop'));
+    if(!cancel&&d.over&&d.over!==d.from)moveToQuad(d.id,d.over);return;
+  }
+  if(!sw)return;const s=sw;sw=null;
+  if(!s.on)return;
+  justSwiped=Date.now();s.card.classList.remove('swiping');s.body.style.transform='';
+  if(cancel)return;
+  const id=s.card.dataset.id;
+  if(s.dx>90)toggleDone(id);else if(s.dx<-90)snoozeDay(id);
+}
+document.addEventListener('pointerup',()=>endSwipe(false));
+document.addEventListener('pointercancel',()=>endSwipe(true));
+
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){tick();softRender()}});
+
+/* ---------- boot ---------- */
+$('#back').innerHTML=IC.back;$('#gear').innerHTML=IC.gear;$('#fab').innerHTML=IC.plus;
+$('#tabs').innerHTML=[['today','Сегодня',IC.today],['matrix','Матрица',IC.matrix],['projects','Проекты',IC.folder],['cal','Календарь',IC.cal]]
+  .map(([v,l,i])=>`<button class="tab" data-act="tab" data-v="${v}">${i}<span>${l}</span></button>`).join('');
+document.documentElement.lang='ru';
+load();applyTheme();render();tick();setInterval(tick,15000);
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js');
+</script>
+</body>
+</html>
